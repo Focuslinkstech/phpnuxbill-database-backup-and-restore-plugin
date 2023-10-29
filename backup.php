@@ -116,7 +116,7 @@ function backup_restore()
     if (file_exists($filePath) && strpos(realpath($filePath), realpath($backupDir)) === 0) {
         // Execute the mysql command to restore the database
         $command = "mysql --user={$db_user} --password={$db_password} --host={$db_host} {$db_name} < {$filePath}";
-        $output = shell_exec($command);
+        $output = @shell_exec($command);
 
         if ($output === null) {
             r2(U . 'plugin/backup_list', 's', 'Database restored successfully.');
