@@ -62,10 +62,14 @@
     </div>
 </div>
 <pre>
+<b>Note:</b>
+# Don't forget that i haven't test the automatic backup feature. but i have the plan to add the feature.
+# Make sure your server support shell_exec function, else you may get errors while creating database backup.
+
 # To set up the automatic backup, you need to configure a cron job on your server.
 # The cron job should execute the backup.php script at the desired interval.
 # Here's an example of a cron job entry that runs the script every day at 1 AM:
-# Don't forget that i haven't test the automatic backup feature. but i have the plan to add the feature.
+
 0 1 * * * php /path/to/backup.php auto >/dev/null 2>&1
 </pre>
 
