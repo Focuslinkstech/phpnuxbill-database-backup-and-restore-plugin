@@ -37,14 +37,47 @@ function backup_list()
     $backupFiles = array_diff($backupFiles, array('..', '.')); // Exclude parent and current directory entries
 
     // Sort the backup files by modification time, in descending order
-    usort($backupFiles, function ($a, $b) {
+    usort($backupFiles, function ($a, $b) use ($backupDir) {
         return filemtime($backupDir . '/' . $b) - filemtime($backupDir . '/' . $a);
     });
 
+    // Calculate the size and creation date of each backup file
+    $backupFilesWithInfo = [];
+    foreach ($backupFiles as $file) {
+        $filePath = $backupDir . '/' . $file;
+        $size = getFileSize($filePath);
+        $creationDate = date('Y-m-d H:i:s', filemtime($filePath));
+        $backupFilesWithInfo[] = [
+            'file' => $file,
+            'size' => $size,
+            'creation_date' => $creationDate
+        ];
+    }
+
     // Assign variables for Smarty
-    $ui->assign('backupFiles', $backupFiles);
-   // Display the template
+    $ui->assign('backupFiles', $backupFilesWithInfo);
+
+    // Display the template
     $ui->display('backup.tpl');
+}
+
+function getFileSize($filePath)
+{
+    $size = filesize($filePath);
+
+    if ($size === false) {
+        return 'Unable to determine file size.';
+    }
+
+    $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    $index = 0;
+
+    while ($size >= 1024 && $index < count($units) - 1) {
+        $size /= 1024;
+        $index++;
+    }
+
+    return round($size, 2) . ' ' . $units[$index];
 }
 
 function backup_add()
@@ -86,7 +119,7 @@ function backup_download()
         readfile($filePath);
         exit;
     }else{
-        echo 'The file does not exist.';
+        r2(U . 'plugin/backup_list', 'e', Lang::T("The file does not exist."));
     }
 }
 
