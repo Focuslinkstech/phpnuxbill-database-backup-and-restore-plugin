@@ -127,6 +127,7 @@
     <h4><b>Note</b>:</h4>
     <p>
         Make sure your server support shell_exec function, else you may get errors while creating database backup. <br>
+        Auto Clear Old Backup will clear your old backups and leave only 5 recent backups
     </p>
 </div>
 {include file="sections/footer.tpl"}
