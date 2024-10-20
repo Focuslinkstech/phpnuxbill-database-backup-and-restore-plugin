@@ -98,22 +98,6 @@ function backup_add()
     }
 }
 
-function backup_restorePost()
-{
-    _admin();
-    $admin = Admin::_info();
-    if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
-        _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
-        exit;
-    }
-    if (isset($_GET['file'])) {
-        $fileName = $_GET['file'];
-        backup_restore($fileName);
-    } else {
-        r2(U . 'plugin/backup_list', 'e', 'No backup file specified.');
-    }
-}
-
 function backup_download()
 {
     _admin();
