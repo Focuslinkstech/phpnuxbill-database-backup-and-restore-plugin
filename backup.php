@@ -72,13 +72,15 @@ function getFileSize($filePath)
     return round($size, 2) . ' ' . $units[$index];
 }
 
-function backup_add()
+function backup_add($is_CLi = false)
 {
-    _admin();
-    $admin = Admin::_info();
-    if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
-        _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
-        exit;
+    if (!$is_CLi) {
+        _admin();
+        $admin = Admin::_info();
+        if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
+            _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
+            exit;
+        }
     }
     include "config.php";
     $backupDir = File::pathFixer("backup");
@@ -248,25 +250,24 @@ function backup_cron()
 
         // Daily backup
         if ($config['backup_backup_time'] == 'everyday' && $hour === 0) {
-            backup_add();
+            backup_add( true);
             _log(Lang::T("backup_cron: Daily backup initiated."));
             sendTelegram(Lang::T("backup_cron: Daily backup initiated."));
         }
         // Weekly backup
         elseif ($config['backup_backup_time'] == 'everyweek' && $dayOfWeek === 0 && $hour === 0) {
-            backup_add();
+            backup_add( true);
             _log(Lang::T("backup_cron: Weekly backup initiated."));
             sendTelegram(Lang::T("backup_cron: Weekly backup initiated."));
         }
         // Monthly backup
         elseif ($config['backup_backup_time'] == 'everymonth' && $dayOfMonth === 1 && $hour === 0) {
-            backup_add();
+            backup_add( true);
             _log(Lang::T("backup_cron: Monthly backup initiated."));
             sendTelegram(Lang::T("backup_cron: Monthly backup initiated."));
         } else {
             _log(Lang::T("backup_cron: No backup initiated. Conditions not met."));
         }
-
     }
 
     if ($config['backup_clear_old']) {
@@ -289,5 +290,4 @@ function backup_cron()
             }
         }
     }
-
 }
