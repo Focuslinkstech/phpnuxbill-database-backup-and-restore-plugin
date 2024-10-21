@@ -242,28 +242,31 @@ function backup_cron()
             return;
         }
 
+        $hour = (int) date('H');
+        $dayOfWeek = (int) date('w');
+        $dayOfMonth = (int) date('j');
+
         // Daily backup
-        if ($config['backup_backup_time'] == 'everyday' && (int) date('H') === 0) {
+        if ($config['backup_backup_time'] == 'everyday' && $hour === 0) {
             backup_add();
             _log(Lang::T("backup_cron: Daily backup initiated."));
             sendTelegram(Lang::T("backup_cron: Daily backup initiated."));
         }
-
         // Weekly backup
-        elseif ($config['backup_backup_time'] == 'everyweek' && (int) date('w') === 0 && (int) date('H') === 0) {
+        elseif ($config['backup_backup_time'] == 'everyweek' && $dayOfWeek === 0 && $hour === 0) {
             backup_add();
             _log(Lang::T("backup_cron: Weekly backup initiated."));
             sendTelegram(Lang::T("backup_cron: Weekly backup initiated."));
         }
-
         // Monthly backup
-        elseif ($config['backup_backup_time'] == 'everymonth' && (int) date('j') === 1 && (int) date('H') === 0) {
+        elseif ($config['backup_backup_time'] == 'everymonth' && $dayOfMonth === 1 && $hour === 0) {
             backup_add();
             _log(Lang::T("backup_cron: Monthly backup initiated."));
             sendTelegram(Lang::T("backup_cron: Monthly backup initiated."));
+        } else {
+            _log(Lang::T("backup_cron: No backup initiated. Conditions not met."));
         }
 
-        _log(Lang::T("backup_cron: Backup cron job executed successfully."));
     }
 
     if ($config['backup_clear_old']) {
@@ -285,8 +288,6 @@ function backup_cron()
                 }
             }
         }
-        _log(Lang::T("backup_cron: Retained only the latest $retainCount backup files."));
     }
 
-    _log(Lang::T("backup_cron: Backup cron job completed successfully."));
 }
