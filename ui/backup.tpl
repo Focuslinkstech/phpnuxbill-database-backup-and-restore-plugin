@@ -79,38 +79,56 @@
                         <div class="col-md-6">
                             <label class="switch">
                                 <input type="checkbox" id="backup_auto" value="1" name="backup_auto" {if
-                                    $_c['backup_auto']==1}checked{/if}>
+                                    $_c['backup_auto']==1}checked{/if} onchange="toggleBackupFrequency()">
                                 <span class="slider"></span>
                             </label>
                         </div>
                     </div>
+
+                    <div id="backup_frequency_section" style="display: {if $_c['backup_auto']==1}block{else}none{/if};">
+                        <div class="form-group col-6">
+                            <label class="col-md-3 control-label">{Lang::T('Choose Backup Frequency')}</label>
+                            <div class="col-md-6">
+                                <select class="form-control" name="backup_backup_time" id="backup_backup_time">
+                                    <option value="everyday" {if $_c['backup_backup_time']=='everyday' }selected{/if}>
+                                        {Lang::T('Everyday')}</option>
+                                    <option value="everyweek" {if $_c['backup_backup_time']=='everyweek' }selected{/if}>
+                                        {Lang::T('Everyweek')}</option>
+                                    <option value="everymonth" {if $_c['backup_backup_time']=='everymonth'
+                                        }selected{/if}>
+                                        {Lang::T('Everymonth')}</option>
+                                </select>
+                                <small class="form-text text-muted">
+                                    <font color="red"></font> {Lang::T('Backup occurs at 00:00 Hrs')}
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group col-6">
                         <label class="col-md-3 control-label">{Lang::T('Auto Clear Old Backup')}</label>
                         <div class="col-md-6">
                             <label class="switch">
                                 <input type="checkbox" id="backup_clear_old" value="1" name="backup_clear_old" {if
-                                    $_c['backup_clear_old']==1}checked{/if}>
+                                    $_c['backup_clear_old']==1}checked{/if} onchange="toggleRetainCount()">
                                 <span class="slider"></span>
                             </label>
                         </div>
                     </div>
-                    <div class="form-group col-6">
-                        <label class="col-md-3 control-label">{Lang::T('Choose Backup Frequency')}</label>
+
+                    <div id="retain_count_section" style="display: {if $_c['backup_clear_old']==1}block{else}none{/if};"
+                        class="form-group col-6">
+                        <label class="col-md-3 control-label">{Lang::T('Backup Retain Count')}</label>
                         <div class="col-md-6">
-                            <select class="form-control" name="backup_backup_time" id="backup_backup_time">
-                                <option value="everyday" {if $_c['backup_backup_time']=='everyday' }selected{/if}>
-                                    {Lang::T('Everyday')}</option>
-                                <option value="everyweek" {if $_c['backup_backup_time']=='everyweek' }selected{/if}>
-                                    {Lang::T('Everyweek')}
-                                </option>
-                                <option value="everymonth" {if $_c['backup_backup_time']=='everymonth' }selected{/if}>
-                                    {Lang::T('Everymonth')}</option>
-                            </select>
+                            <input type="number" class="form-control" id="backup_retain_count"
+                                name="backup_retain_count" placeholder="5" value="{$_c['backup_retain_count']}">
                             <small class="form-text text-muted">
-                                <font color="red"></font> {Lang::T('Backup occurs at 00:00 Hrs')}
+                                <font color="red"></font> {Lang::T('Retain count must be greater than 0, if you enable
+                                auto clear old backup. If empty 5 will be used')}
                             </small>
                         </div>
                     </div>
+
                     <div class="form-group col-6">
                         <div class="col-lg-offset-3 col-lg-10">
                             <button class="btn btn-primary waves-effect waves-light" name="save" value="save"
@@ -122,7 +140,6 @@
         </div>
     </div>
 </form>
-
 <div class="bs-callout bs-callout-info" id="callout-navbar-role">
     <h4><b>Note</b>:</h4>
     <p>
@@ -130,4 +147,20 @@
         Auto Clear Old Backup will clear your old backups and leave only 5 recent backups
     </p>
 </div>
+
+<script>
+    function toggleBackupFrequency() {
+        const autoBackupCheckbox = document.getElementById('backup_auto');
+        const backupFrequencySection = document.getElementById('backup_frequency_section');
+        backupFrequencySection.style.display = autoBackupCheckbox.checked ? 'block' : 'none';
+    }
+
+    function toggleRetainCount() {
+        const autoClearCheckbox = document.getElementById('backup_clear_old');
+        const retainCountSection = document.getElementById('retain_count_section');
+        retainCountSection.style.display = autoClearCheckbox.checked ? 'block' : 'none';
+    }
+    toggleBackupFrequency();
+    toggleRetainCount();
+</script>
 {include file="sections/footer.tpl"}

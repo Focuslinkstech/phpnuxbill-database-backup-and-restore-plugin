@@ -25,12 +25,16 @@ function backup_list()
         exit;
     }
 
-    $backupDir = File::pathFixer("backup");
+    $backupDir = "system/uploads/backup";
     if (!file_exists($backupDir)) {
         mkdir($backupDir, 0755, true);
     }
     $backupFiles = scandir($backupDir);
-    $backupFiles = array_diff($backupFiles, ['..', '.']);
+    $backupFiles = array_diff($backupFiles, ['..', '.', '']);
+
+    $backupFiles = array_filter($backupFiles, function ($file) {
+        return pathinfo($file, PATHINFO_EXTENSION) === 'sql';
+    });
 
     usort($backupFiles, function ($a, $b) use ($backupDir) {
         return filemtime("$backupDir/$b") - filemtime("$backupDir/$a");
@@ -40,7 +44,7 @@ function backup_list()
     $backupFilesWithInfo = [];
     foreach ($backupFiles as $file) {
         $filePath = "$backupDir/$file";
-        $size = getFileSize($filePath);
+        $size = backup_getFileSize($filePath);
         $creationDate = date('Y-m-d H:i:s', filemtime($filePath));
         $backupFilesWithInfo[] = [
             'file' => $file,
@@ -53,7 +57,7 @@ function backup_list()
     $ui->display('backup.tpl');
 }
 
-function getFileSize($filePath)
+function backup_getFileSize($filePath)
 {
     $size = filesize($filePath);
 
@@ -74,6 +78,9 @@ function getFileSize($filePath)
 
 function backup_add($is_CLi = false)
 {
+    global $UPLOAD_PATH, $root_path;
+    include "{$root_path}config.php";
+    $backupDir = "$UPLOAD_PATH/backup";
     if (!$is_CLi) {
         _admin();
         $admin = Admin::_info();
@@ -81,27 +88,43 @@ function backup_add($is_CLi = false)
             _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
             exit;
         }
-    }
-    include "config.php";
-    $backupDir = File::pathFixer("backup");
-    if (isset($_POST['createBackup']) || isset($_GET['auto'])) {
-        $backupFile = $backupDir . '/backup_' . date('Y-m-d_H-i-s') . '.sql';
 
+        if (isset($_POST['createBackup'])) {
+            $backupFile = $backupDir . '/backup_' . date('Y-m-d_H-i-s') . '.sql';
+
+            $command = "mysqldump --user={$db_user} --password={$db_pass} --host={$db_host} {$db_name} --result-file={$backupFile} 2>&1";
+            $output = shell_exec($command);
+            if (file_exists($backupFile)) {
+                r2(U . 'plugin/backup_list', 's', Lang::T("Database backup created successfully."));
+            } else {
+                // Log the error
+                _log(Lang::T("Error creating backup: ") . $output);
+                sendTelegram(Lang::T("Error creating backup: ") . $output);
+                r2(U . 'plugin/backup_list', 'e', Lang::T("Error creating database backup. Check the log for details."));
+            }
+        } else {
+            r2(U . 'plugin/backup_list', 'e', Lang::T("Invalid request method."));
+        }
+    } else {
+        // CLI mode
+        $backupFile = $backupDir . '/backup_' . date('Y-m-d_H-i-s') . '.sql';
         $command = "mysqldump --user={$db_user} --password={$db_pass} --host={$db_host} {$db_name} --result-file={$backupFile} 2>&1";
         $output = shell_exec($command);
         if (file_exists($backupFile)) {
-            r2(U . 'plugin/backup_list', 's', Lang::T("Database backup created successfully."));
+            return true;
         } else {
             // Log the error
             _log(Lang::T("Error creating backup: ") . $output);
             sendTelegram(Lang::T("Error creating backup: ") . $output);
-            r2(U . 'plugin/backup_list', 'e', Lang::T("Error creating database backup. Check the log for details."));
+            echo "Error creating database backup. Check the log for details.\n\n";
+            return false;
         }
     }
 }
 
 function backup_download()
 {
+    global $UPLOAD_PATH;
     _admin();
     $admin = Admin::_info();
     if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
@@ -111,7 +134,8 @@ function backup_download()
     if (!empty($_GET['file'])) {
 
         $fileName = basename($_GET['file']);
-        $filePath = "backup/$fileName";
+        $backupDir = "$UPLOAD_PATH/backup";
+        $filePath = "$backupDir/$fileName";
 
         if (!empty($fileName) && file_exists($filePath)) {
 
@@ -131,6 +155,7 @@ function backup_download()
 
 function backup_delete()
 {
+    global $UPLOAD_PATH;
     _admin();
     $admin = Admin::_info();
     if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
@@ -138,8 +163,7 @@ function backup_delete()
         exit;
     }
     include "config.php";
-    $backupDir = File::pathFixer("backup");
-
+    $backupDir = "$UPLOAD_PATH/backup";
     if (isset($_GET['file'])) {
         $fileName = basename($_GET['file']);
         $filePath = "$backupDir/$fileName";
@@ -160,6 +184,9 @@ function backup_delete()
 }
 function backup_restore()
 {
+    global $UPLOAD_PATH;
+
+    $backupDir = "$UPLOAD_PATH/backup";
     _admin();
     $admin = Admin::_info();
     if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
@@ -169,7 +196,6 @@ function backup_restore()
     include "config.php";
     if (isset($_GET['file'])) {
         $fileName = $_GET['file'];
-        $backupDir = File::pathFixer("backup");
         $fileName = basename($fileName);
         $filePath = "$backupDir/$fileName";
 
@@ -206,7 +232,8 @@ function backup_settingsPost()
         $settings = [
             'backup_auto' => $_POST['backup_auto'] ? 1 : 0,
             'backup_clear_old' => $_POST['backup_clear_old'] ? 1 : 0,
-            'backup_backup_time' => $_POST['backup_backup_time']
+            'backup_backup_time' => $_POST['backup_backup_time'],
+            'backup_retain_count' => $_POST['backup_retain_count']
         ];
 
         // Update or insert settings in the database
@@ -228,51 +255,109 @@ function backup_settingsPost()
 }
 function backup_cron()
 {
-    global $config;
+    global $config, $UPLOAD_PATH;
 
-    $backupDir = '../backup';
-    if ($config['backup_auto']) {
-        if (!is_dir($backupDir)) {
-            _log(Lang::T("Backup directory does not exist: $backupDir"));
-            sendTelegram(Lang::T("Backup directory does not exist: $backupDir"));
+    $backupDir = "$UPLOAD_PATH/backup";
+    $lastBackupFile = "$backupDir/last_backup_time.txt";
+
+    _log(Lang::T("Backup Cron Started"));
+    echo Lang::T("Backup Cron Started:\n\n");
+
+    if (!isset($config['backup_auto']) || !$config['backup_auto']) {
+        _log(Lang::T("Auto backup is disabled"));
+        echo Lang::T("Auto backup is disabled\n\n");
+        return;
+    }
+
+    // Ensure backup directory exists and is writable
+    if (!is_dir($backupDir)) {
+        if (!mkdir($backupDir, 0755, true)) {
+            _log(Lang::T("Failed to create backup directory: $backupDir"));
+            sendTelegram(Lang::T("Failed to create backup directory: $backupDir"));
+            echo Lang::T("Failed to create backup directory: $backupDir\n\n");
             return;
-        }
-
-        if (!is_writable($backupDir)) {
-            _log(Lang::T("Backup directory is not writable: $backupDir"));
-            sendTelegram(Lang::T("Backup directory is not writable: $backupDir"));
-            return;
-        }
-
-        $hour = (int) date('H');
-        $dayOfWeek = (int) date('w');
-        $dayOfMonth = (int) date('j');
-
-        // Daily backup
-        if ($config['backup_backup_time'] == 'everyday' && $hour === 0) {
-            backup_add( true);
-            _log(Lang::T("backup_cron: Daily backup initiated."));
-            sendTelegram(Lang::T("backup_cron: Daily backup initiated."));
-        }
-        // Weekly backup
-        elseif ($config['backup_backup_time'] == 'everyweek' && $dayOfWeek === 0 && $hour === 0) {
-            backup_add( true);
-            _log(Lang::T("backup_cron: Weekly backup initiated."));
-            sendTelegram(Lang::T("backup_cron: Weekly backup initiated."));
-        }
-        // Monthly backup
-        elseif ($config['backup_backup_time'] == 'everymonth' && $dayOfMonth === 1 && $hour === 0) {
-            backup_add( true);
-            _log(Lang::T("backup_cron: Monthly backup initiated."));
-            sendTelegram(Lang::T("backup_cron: Monthly backup initiated."));
-        } else {
-            _log(Lang::T("backup_cron: No backup initiated. Conditions not met."));
         }
     }
 
-    if ($config['backup_clear_old']) {
-        $retainCount = $config['backup_retain_count'] ?? 5;
-        $files = glob("$backupDir/*");
+    if (!is_writable($backupDir)) {
+        _log(Lang::T("Backup directory is not writable: $backupDir"));
+        sendTelegram(Lang::T("Backup directory is not writable: $backupDir"));
+        echo Lang::T("Backup directory is not writable: $backupDir\n\n");
+        return;
+    }
+
+    // Get or create last backup time
+    $lastBackupTime = 0;
+    if (file_exists($lastBackupFile)) {
+        $lastBackupTime = (int) file_get_contents($lastBackupFile);
+    }
+
+    $currentTime = time();
+    $lastBackupDate = date('Y-m-d', $lastBackupTime ?: 0);
+    $currentDate = date('Y-m-d');
+
+    $shouldBackup = false;
+    $backupType = '';
+
+    switch ($config['backup_backup_time']) {
+        case 'everyday':
+            // Check if last backup was not today
+            if ($lastBackupDate !== $currentDate) {
+                $shouldBackup = true;
+                $backupType = 'Daily';
+            }
+            break;
+
+        case 'everyweek':
+            // Check if it's been at least 7 days since last backup
+            if ((!$lastBackupTime || ($currentTime - $lastBackupTime) >= 7 * 24 * 3600) && date('w') == 0) {
+                $shouldBackup = true;
+                $backupType = 'Weekly';
+            }
+            break;
+
+        case 'everymonth':
+            // Check if it's first day of month and no backup was made today
+            if (date('j') == 1 && $lastBackupDate !== $currentDate) {
+                $shouldBackup = true;
+                $backupType = 'Monthly';
+            }
+            break;
+    }
+
+    // Perform backup if conditions are met
+    if ($shouldBackup) {
+        _log(Lang::T("Initiating $backupType backup"));
+        sendTelegram(Lang::T("Initiating $backupType backup"));
+        echo Lang::T("Initiating $backupType backup\n\n");
+
+        try {
+            if (!backup_add(true)) {
+                throw new Exception('Backup failed');
+            }
+            file_put_contents($lastBackupFile, $currentTime);
+            _log(Lang::T("$backupType backup completed successfully"));
+            sendTelegram(Lang::T("$backupType backup completed successfully"));
+            echo Lang::T("Backup completed successfully\n\n");
+        } catch (Exception $e) {
+            _log(Lang::T("Backup failed: ") . $e->getMessage());
+            sendTelegram(Lang::T("Backup failed: ") . $e->getMessage());
+            echo Lang::T("Backup failed: ") . $e->getMessage() . "\n\n";
+        }
+    } else {
+        _log(Lang::T("No backup needed at this time. Last backup: $lastBackupDate"));
+        echo Lang::T("No backup needed at this time. Last backup: $lastBackupDate\n\n");
+    }
+
+    // Handle old backup cleanup
+    if (!empty($config['backup_clear_old'])) {
+        $retainCount = isset($config['backup_retain_count']) ? (int)$config['backup_retain_count'] : 5;
+        $files = glob("$backupDir/*.sql");
+
+        if ($files === false) {
+            _log(Lang::T("Failed to list backup files"));
+            return;
+        }
 
         usort($files, function ($a, $b) {
             return filemtime($b) - filemtime($a);
@@ -282,10 +367,10 @@ function backup_cron()
             $filesToDelete = array_slice($files, $retainCount);
             foreach ($filesToDelete as $file) {
                 if (@unlink($file)) {
-                    _log(Lang::T("backup_cron: Deleted old backup file: $file"));
-                    sendTelegram(Lang::T("backup_cron: Deleted old backup file: $file"));
+                    _log(Lang::T("Deleted old backup file: ") . basename($file));
+                    sendTelegram(Lang::T("Deleted old backup file: ") . basename($file));
                 } else {
-                    _log(Lang::T("backup_cron: Failed to delete old backup file: $file"));
+                    _log(Lang::T("Failed to delete old backup file: ") . basename($file));
                 }
             }
         }
