@@ -21,6 +21,7 @@
                     </div>
                     <div class="col-md-4">
                         <form method="POST" action="{$_url}plugin/backup_add">
+                            <input type="hidden" name="csrf_token" value="{$csrf_token}">
                             <input class="btn btn-primary btn-block waves-effect" type="submit" name="createBackup"
                                 value="Create Backup">
                         </form>
@@ -47,12 +48,12 @@
                                 <td>{$backup.creation_date}</td>
                                 <td>{$backup.size}</td>
                                 <td align="center">
-                                    <a href="{$_url}plugin/backup_download&file={$backup.file}" style="margin: 0px;"
+                                    <a href="{$_url}plugin/backup_download&file={$backup.file}&token={$csrf_token}" style="margin: 0px;"
                                         class="btn btn-success btn-xs">{Lang::T('Download')}</a>
-                                    <a href="{$_url}plugin/backup_restore&file={$backup.file}" style="margin: 0px;"
+                                    <a href="{$_url}plugin/backup_restore&file={$backup.file}&token={$csrf_token}" style="margin: 0px;"
                                         onclick="return confirm('{Lang::T('Are you Sure you want to Restore this Database?')}')"
                                         class="btn btn-primary btn-xs">{Lang::T('Restore')}</a>
-                                    <a href="{$_url}plugin/backup_delete&file={$backup.file}" style="margin: 0px;"
+                                    <a href="{$_url}plugin/backup_delete&file={$backup.file}&token={$csrf_token}" style="margin: 0px;"
                                         onclick="return confirm('{Lang::T('Are you Sure you want to Delete this Database?')}')"
                                         class="btn btn-danger btn-xs">{Lang::T('Delete')}</a>
                                 </td>
@@ -69,6 +70,7 @@
 </div>
 
 <form class="form-horizontal" method="post" role="form" action="{$_url}plugin/backup_settingsPost">
+    <input type="hidden" name="csrf_token" value="{$csrf_token}">
     <div class="row">
         <div class="col-sm-12 col-md-12">
             <div class="panel panel-primary panel-hovered panel-stacked mb30">
@@ -124,7 +126,7 @@
                                 name="backup_retain_count" placeholder="5" value="{$_c['backup_retain_count']}">
                             <small class="form-text text-muted">
                                 <font color="red"></font> {Lang::T('Retain count must be greater than 0, if you enable
-                                auto clear old backup. If empty 5 will be used')}
+                                auto clear old backup.')}
                             </small>
                         </div>
                     </div>

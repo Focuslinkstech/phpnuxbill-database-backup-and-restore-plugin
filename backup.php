@@ -53,6 +53,7 @@ function backup_list()
         ];
     }
 
+    $ui->assign('csrf_token', Csrf::generateAndStoreToken());
     $ui->assign('backupFiles', $backupFilesWithInfo);
     $ui->display('backup.tpl');
 }
@@ -90,6 +91,10 @@ function backup_add($is_CLi = false)
         }
 
         if (isset($_POST['createBackup'])) {
+            $csrf_token = _post('csrf_token');
+            if (!Csrf::check($csrf_token)) {
+                r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+            }
             $backupFile = $backupDir . '/backup_' . date('Y-m-d_H-i-s') . '.sql';
 
             $command = "mysqldump --user={$db_user} --password={$db_pass} --host={$db_host} {$db_name} --result-file={$backupFile} 2>&1";
@@ -133,6 +138,10 @@ function backup_download()
     }
     if (!empty($_GET['file'])) {
 
+        $csrf_token = $_GET['token'];
+        if (!Csrf::check($csrf_token)) {
+            r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+        }
         $fileName = basename($_GET['file']);
         $backupDir = "$UPLOAD_PATH/backup";
         $filePath = "$backupDir/$fileName";
@@ -165,6 +174,10 @@ function backup_delete()
     include "config.php";
     $backupDir = "$UPLOAD_PATH/backup";
     if (isset($_GET['file'])) {
+        $csrf_token = $_GET['token'];
+        if (!Csrf::check($csrf_token)) {
+            r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+        }
         $fileName = basename($_GET['file']);
         $filePath = "$backupDir/$fileName";
 
@@ -195,6 +208,10 @@ function backup_restore()
     }
     include "config.php";
     if (isset($_GET['file'])) {
+        $csrf_token = $_GET['token'];
+        if (!Csrf::check($csrf_token)) {
+            r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+        }
         $fileName = $_GET['file'];
         $fileName = basename($fileName);
         $filePath = "$backupDir/$fileName";
@@ -228,7 +245,18 @@ function backup_settingsPost()
 {
     $admin = Admin::_info();
     if (_post('save') == 'save') {
+        $csrf_token = _post('csrf_token');
+        if (!Csrf::check($csrf_token)) {
+            r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+        }
+        if (isset($_POST['backup_retain_count']) && $_POST['backup_clear_old'] == '1') {
+            $retainCount = $_POST['backup_retain_count'];
 
+            if (empty($retainCount) || !is_numeric($retainCount) || $retainCount < 1) {
+                r2(U . 'plugin/backup_list', 'e', 'Backup Retention Count cannot be empty and must be greater than 0');
+                return;
+            }
+        }
         $settings = [
             'backup_auto' => $_POST['backup_auto'] ? 1 : 0,
             'backup_clear_old' => $_POST['backup_clear_old'] ? 1 : 0,
