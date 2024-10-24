@@ -442,7 +442,7 @@ function backup_upload_form()
             exit;
         } else {
             if (move_uploaded_file($file_tmp, "$upload_path/$new_file_name")) {
-               r2(U . 'plugin/backup_list', 'e', Lang::T('File uploaded successfully'));
+               r2(U . 'plugin/backup_list', 's', Lang::T('File uploaded successfully'));
             } else {
                r2(U . 'plugin/backup_list', 'e', Lang::T('Failed to upload file'));
             }
