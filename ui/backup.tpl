@@ -8,13 +8,13 @@
             <div class="panel-body">
                 <div class="md-whiteframe-z1 mb20 text-center" style="padding: 15px">
                     <div class="col-md-8">
-                        <form id="site-search" method="post" action="{$_url}plugin/backup_list">
+                        <form method="post" action="{$_url}plugin/backup_upload_form" enctype="multipart/form-data">
+                            <input type="hidden" name="csrf_token" value="{$csrf_token}">
                             <div class="input-group">
-                                <input type="text" name="search" value="{$search}" class="form-control"
-                                    placeholder="{Lang::T('Search')}...">
+                                <input class="form-control" type="file" name="file" accept="application/*.sql">
                                 <div class="input-group-btn">
-                                    <button class="btn btn-success" type="submit"><span
-                                            class="fa fa-search"></span></button>
+                                    <button class="btn btn-success" type="submit"><span class="fa fa-upload">
+                                    </span></button>
                                 </div>
                             </div>
                         </form>
@@ -48,12 +48,14 @@
                                 <td>{$backup.creation_date}</td>
                                 <td>{$backup.size}</td>
                                 <td align="center">
-                                    <a href="{$_url}plugin/backup_download&file={$backup.file}&token={$csrf_token}" style="margin: 0px;"
-                                        class="btn btn-success btn-xs">{Lang::T('Download')}</a>
-                                    <a href="{$_url}plugin/backup_restore&file={$backup.file}&token={$csrf_token}" style="margin: 0px;"
+                                    <a href="{$_url}plugin/backup_download&file={$backup.file}&token={$csrf_token}"
+                                        style="margin: 0px;" class="btn btn-success btn-xs">{Lang::T('Download')}</a>
+                                    <a href="{$_url}plugin/backup_restore&file={$backup.file}&token={$csrf_token}"
+                                        style="margin: 0px;"
                                         onclick="return confirm('{Lang::T('Are you Sure you want to Restore this Database?')}')"
                                         class="btn btn-primary btn-xs">{Lang::T('Restore')}</a>
-                                    <a href="{$_url}plugin/backup_delete&file={$backup.file}&token={$csrf_token}" style="margin: 0px;"
+                                    <a href="{$_url}plugin/backup_delete&file={$backup.file}&token={$csrf_token}"
+                                        style="margin: 0px;"
                                         onclick="return confirm('{Lang::T('Are you Sure you want to Delete this Database?')}')"
                                         class="btn btn-danger btn-xs">{Lang::T('Delete')}</a>
                                 </td>

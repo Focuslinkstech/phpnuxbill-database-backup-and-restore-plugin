@@ -404,3 +404,50 @@ function backup_cron()
         }
     }
 }
+
+
+function backup_upload_form()
+{
+    global $config, $UPLOAD_PATH;
+    _admin();
+    $admin = Admin::_info();
+    if (!in_array($admin['user_type'], ['SuperAdmin', 'Admin'])) {
+        _alert(Lang::T('You do not have permission to access this page'), 'danger', "dashboard");
+        exit;
+    }
+    $upload_path = "$UPLOAD_PATH/backup";
+    if (isset($_FILES['file'])) {
+        $csrf_token = _post('csrf_token');
+        if (!Csrf::check($csrf_token)) {
+            r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid or Expired CSRF Token') . ".");
+        }
+
+        // Check for upload errors
+        if ($_FILES['file']['error'] != UPLOAD_ERR_OK) {
+            r2(U . 'plugin/backup_list', 'e', Lang::T('No file selected'));
+            return;
+        }
+        $file_name = $_FILES['file']['name'];
+        $file_size = $_FILES['file']['size'];
+        $file_tmp = $_FILES['file']['tmp_name'];
+        $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+        $allowed_extensions = ['sql'];
+        $allowed_size = 1024 * 1024 * 50; // 50 MB
+        $new_file_name = 'backup_' . date('YmdHis') . '.' . $file_ext;
+        if ($file_size > $allowed_size) {
+             r2(U . 'plugin/backup_list', 'e', Lang::T('File size is too large. Maximum allowed size is 10MB'));
+            exit;
+        } elseif (!in_array($file_ext, $allowed_extensions)) {
+            r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid file type. Only SQL files are allowed'));
+            exit;
+        } else {
+            if (move_uploaded_file($file_tmp, "$upload_path/$new_file_name")) {
+               r2(U . 'plugin/backup_list', 'e', Lang::T('File uploaded successfully'));
+            } else {
+               r2(U . 'plugin/backup_list', 'e', Lang::T('Failed to upload file'));
+            }
+        }
+    } else {
+        _alert(Lang::T('No file selected'), 'danger', "plugin/backup_list");
+    }
+}
