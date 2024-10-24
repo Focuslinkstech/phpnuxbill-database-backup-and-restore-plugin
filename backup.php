@@ -435,7 +435,7 @@ function backup_upload_form()
         $allowed_size = 1024 * 1024 * 50; // 50 MB
         $new_file_name = 'backup_' . date('YmdHis') . '.' . $file_ext;
         if ($file_size > $allowed_size) {
-             r2(U . 'plugin/backup_list', 'e', Lang::T('File size is too large. Maximum allowed size is 10MB'));
+             r2(U . 'plugin/backup_list', 'e', Lang::T('File size is too large. Maximum allowed size is 50MB'));
             exit;
         } elseif (!in_array($file_ext, $allowed_extensions)) {
             r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid file type. Only SQL files are allowed'));
