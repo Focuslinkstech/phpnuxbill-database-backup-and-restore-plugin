@@ -14,7 +14,7 @@
                                 <input class="form-control" type="file" name="file" accept="application/*.sql">
                                 <div class="input-group-btn">
                                     <button class="btn btn-success" type="submit"><span class="fa fa-upload">
-                                    </span></button>
+                                        </span> {Lang::T('Upload')}</button>
                                 </div>
                             </div>
                         </form>
