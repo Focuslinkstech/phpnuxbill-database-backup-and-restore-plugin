@@ -288,12 +288,7 @@ function backup_cron()
     $backupDir = "$UPLOAD_PATH/backup";
     $lastBackupFile = "$backupDir/last_backup_time.txt";
 
-    _log(Lang::T("Backup Cron Started"));
-    echo Lang::T("Backup Cron Started:\n\n");
-
     if (!isset($config['backup_auto']) || !$config['backup_auto']) {
-        _log(Lang::T("Auto backup is disabled"));
-        echo Lang::T("Auto backup is disabled\n\n");
         return;
     }
 
@@ -373,7 +368,6 @@ function backup_cron()
             echo Lang::T("Backup failed: ") . $e->getMessage() . "\n\n";
         }
     } else {
-        _log(Lang::T("No backup needed at this time. Last backup: $lastBackupDate"));
         echo Lang::T("No backup needed at this time. Last backup: $lastBackupDate\n\n");
     }
 
@@ -383,7 +377,7 @@ function backup_cron()
         $files = glob("$backupDir/*.sql");
 
         if ($files === false) {
-            _log(Lang::T("Failed to list backup files"));
+            echo Lang::T("Failed to list backup files\n\n");
             return;
         }
 
@@ -435,16 +429,16 @@ function backup_upload_form()
         $allowed_size = 1024 * 1024 * 50; // 50 MB
         $new_file_name = 'backup_' . date('Y-m-d_H-i-s') . '.' . $file_ext;
         if ($file_size > $allowed_size) {
-             r2(U . 'plugin/backup_list', 'e', Lang::T('File size is too large. Maximum allowed size is 50MB'));
+            r2(U . 'plugin/backup_list', 'e', Lang::T('File size is too large. Maximum allowed size is 50MB'));
             exit;
         } elseif (!in_array($file_ext, $allowed_extensions)) {
             r2(U . 'plugin/backup_list', 'e', Lang::T('Invalid file type. Only SQL files are allowed'));
             exit;
         } else {
             if (move_uploaded_file($file_tmp, "$upload_path/$new_file_name")) {
-               r2(U . 'plugin/backup_list', 's', Lang::T('File uploaded successfully'));
+                r2(U . 'plugin/backup_list', 's', Lang::T('File uploaded successfully'));
             } else {
-               r2(U . 'plugin/backup_list', 'e', Lang::T('Failed to upload file'));
+                r2(U . 'plugin/backup_list', 'e', Lang::T('Failed to upload file'));
             }
         }
     } else {
