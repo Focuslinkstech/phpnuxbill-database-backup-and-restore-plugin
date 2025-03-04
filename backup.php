@@ -306,7 +306,7 @@ function backup_settingsPost(): void
             'backup_backup_time' => $_POST['backup_backup_time'],
             'backup_retain_count' => $_POST['backup_retain_count'],
             'backup_retain_days' => $_POST['backup_retain_days'],
-            'cloud_upload' => $_POST['cloud_upload'],
+            'cloud_upload' => $_POST['cloud_upload'] ? 1 : 0,
             'backup_dropbox_token' => $_POST['backup_dropbox_token'],
         ];
 
