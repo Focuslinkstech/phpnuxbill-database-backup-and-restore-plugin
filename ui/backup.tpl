@@ -161,11 +161,11 @@
                                 </small>
                             </div>
                         </div>
-                        <div class="form-group col-6">
-                            <div class="col-lg-offset-3 col-lg-10">
-                                <button class="btn btn-primary waves-effect waves-light" name="save" value="save"
-                                    type="submit">Save Changes</button>
-                            </div>
+                    </div>
+                    <div class="form-group col-6">
+                        <div class="col-lg-offset-3 col-lg-10">
+                            <button class="btn btn-primary waves-effect waves-light" name="save" value="save"
+                                type="submit">Save Changes</button>
                         </div>
                     </div>
                 </div>
