@@ -134,9 +134,38 @@
                     </div>
 
                     <div class="form-group col-6">
-                        <div class="col-lg-offset-3 col-lg-10">
-                            <button class="btn btn-primary waves-effect waves-light" name="save" value="save"
-                                type="submit">Save Changes</button>
+                        <label class="col-md-3 control-label">{Lang::T('Cloud Upload')}</label>
+                        <div class="col-md-6">
+                            <label class="switch">
+                                <input type="checkbox" id="cloud_upload" value="1" name="cloud_upload" {if
+                                    $_c['cloud_upload']==1}checked{/if} onchange="toggleCloudFields()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="dropbox_fields" style="display: {if $_c['cloud_upload']==1}block{else}none{/if};">
+                        <div class="form-group col-6">
+                            <label for="backup_dropbox_token" class="col-md-3 control-label">{Lang::T('Dropbox Access
+                                Token')}</label>
+                            <div class="col-md-6">
+                                <input type="password" class="form-control" id="backup_dropbox_token"
+                                    name="backup_dropbox_token"
+                                    placeholder="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+                                    value="{$_c['backup_dropbox_token']}">
+                                <small class="form-text text-muted">
+                                    <font color="red"></font> {Lang::T('Your Dropbox Access Token, get it from your
+                                    Dropbox App settings.')} <br>
+                                    <a href="https://www.dropbox.com/developers/apps" target="_blank">{Lang::T('Get
+                                        Dropbox Access Token')}</a>
+                                </small>
+                            </div>
+                        </div>
+                        <div class="form-group col-6">
+                            <div class="col-lg-offset-3 col-lg-10">
+                                <button class="btn btn-primary waves-effect waves-light" name="save" value="save"
+                                    type="submit">Save Changes</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -145,10 +174,27 @@
     </div>
 </form>
 <div class="bs-callout bs-callout-info" id="callout-navbar-role">
-    <h4><b>Note</b>:</h4>
     <p>
-        Make sure your server support shell_exec function, else you may get errors while creating database backup. <br>
-        Auto Clear Old Backup will clear your old backups and leave only 5 recent backups
+    <h4><b>Note</b>:</h4>
+    {Lang::T('Make sure your server support shell_exec function, else you may get errors while creating database
+    backup.')} <br> {Lang::T('Auto Clear Old Backup will clear your old backups and leave only 5 recent backups.')}
+    </p>
+    <p>
+    <h4><b>Dropbox Cloud Backup</b>:</h4>
+    {Lang::T('Visit:')} <a href="https://www.dropbox.com/developers/apps" target="_blank">Get
+        Dropbox Access Token</a>
+    <br>
+    {Lang::T('Create a')} New App <br>
+    {Lang::T('Select')} "Full Access" <br>
+    {Lang::T('Goto')} "Permission Tab" <br>
+    {Lang::T('In')} "Individual Scopes" <br>
+    {Lang::T('Under')} "Files and folders"<br>
+    {Lang::T('Select')}: "files.content.write" and "files.content.read"<br>
+    {Lang::T('Click on')} Submit <br>
+    {Lang::T('Goto')} "Settings Tab" <br>
+    {Lang::T('Generate')} "new access token" <br>
+    {Lang::T('Copy the generated')} "access token" <br>
+    {Lang::T('Paste the access token in the input field above and click on "Save Changes"')}
     </p>
 </div>
 
@@ -164,7 +210,18 @@
         const retainCountSection = document.getElementById('retain_count_section');
         retainCountSection.style.display = autoClearCheckbox.checked ? 'block' : 'none';
     }
+
+    function toggleCloudFields() {
+        const cloudUploadCheckbox = document.getElementById('cloud_upload');
+        const dropBoxFields = document.getElementById('dropbox_fields');
+        if (cloudUploadCheckbox.checked) {
+            dropBoxFields.style.display = 'block';
+        } else {
+            dropBoxFields.style.display = 'none';
+        }
+    }
     toggleBackupFrequency();
     toggleRetainCount();
+    toggleCloudFields();
 </script>
 {include file="sections/footer.tpl"}
