@@ -349,7 +349,6 @@ function backup_cron(): void
     echo Lang::T("Backup Cron Started:\n\n");
 
     if (!isset($config['backup_auto']) || !$config['backup_auto']) {
-        _log(Lang::T("Auto backup is disabled"));
         echo Lang::T("Auto backup is disabled\n\n");
         return;
     }
