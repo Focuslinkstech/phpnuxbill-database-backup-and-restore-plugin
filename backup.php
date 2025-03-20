@@ -342,137 +342,135 @@ function backup_cron(): void
 {
     global $config, $UPLOAD_PATH;
 
-    $backupDir = "$UPLOAD_PATH/backup";
-    $lastBackupFile = "$backupDir/last_backup_time.txt";
+    if (isset($config['backup_auto']) && $config['backup_auto']) {
+        $backupDir = "$UPLOAD_PATH/backup";
+        $lastBackupFile = "$backupDir/last_backup_time.txt";
 
-    _log(Lang::T("Backup Cron Started"));
-    echo Lang::T("Backup Cron Started:\n\n");
+        _log(Lang::T("Backup Cron Started"));
+        echo Lang::T("Backup Cron Started:\n\n");
 
-    if (!isset($config['backup_auto']) || !$config['backup_auto']) {
-        echo Lang::T("Auto backup is disabled\n\n");
-        return;
-    }
-
-    // Ensure backup directory exists and is writable
-    if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true) && !is_dir($backupDir)) {
-        _log(Lang::T("Failed to create backup directory: $backupDir"));
-        sendTelegram(Lang::T("Failed to create backup directory: $backupDir"));
-        echo Lang::T("Failed to create backup directory: $backupDir\n\n");
-        return;
-    }
-
-    if (!is_writable($backupDir)) {
-        _log(Lang::T("Backup directory is not writable: $backupDir"));
-        sendTelegram(Lang::T("Backup directory is not writable: $backupDir"));
-        echo Lang::T("Backup directory is not writable: $backupDir\n\n");
-        return;
-    }
-
-    // Get or create last backup time
-    $lastBackupTime = 0;
-    if (file_exists($lastBackupFile)) {
-        $lastBackupTime = (int) file_get_contents($lastBackupFile);
-    }
-
-    $currentTime = time();
-    $lastBackupDate = date('Y-m-d', $lastBackupTime ?: 0);
-    $currentDate = date('Y-m-d');
-
-    $shouldBackup = false;
-    $backupType = '';
-
-    switch ($config['backup_backup_time']) {
-        case 'everyday':
-            if ($lastBackupDate !== $currentDate) {
-                $shouldBackup = true;
-                $backupType = 'Daily';
-            }
-            break;
-
-        case 'everyweek':
-            if ((!$lastBackupTime || ($currentTime - $lastBackupTime) >= 7 * 24 * 3600) && date('w') == 0) {
-                $shouldBackup = true;
-                $backupType = 'Weekly';
-            }
-            break;
-
-        case 'everymonth':
-            if (date('j') == 1 && $lastBackupDate !== $currentDate) {
-                $shouldBackup = true;
-                $backupType = 'Monthly';
-            }
-            break;
-    }
-
-    if ($shouldBackup) {
-        _log(Lang::T("Initiating $backupType backup"));
-        sendTelegram(Lang::T("Initiating $backupType backup"));
-        echo Lang::T("Initiating $backupType backup\n\n");
-
-        try {
-            if (!backup_add(true)) {
-                throw new \RuntimeException('Backup failed');
-            }
-            file_put_contents($lastBackupFile, $currentTime);
-
-            // Get the latest backup file
-            $files = glob("$backupDir/*.sql");
-            if (empty($files)) {
-                throw new \RuntimeException('No backup files found');
-            }
-            usort($files, static function ($a, $b) {
-                return filemtime($b) - filemtime($a);
-            });
-            $latestBackupFile = $files[0];
-
-            // Dropbox upload
-            if (isset($config['cloud_upload']) && $config['cloud_upload']) {
-                $accessToken = $config['backup_dropbox_token'] ?? '';
-                if (!empty($accessToken)) {
-                    backup_uploadToDropbox($latestBackupFile, $accessToken);
-                    _log(Lang::T("Backup uploaded to Dropbox successfully"));
-                    sendTelegram(Lang::T("Backup uploaded to Dropbox successfully"));
-                }
-            }
-
-            _log(Lang::T("$backupType backup completed successfully"));
-            sendTelegram(Lang::T("$backupType backup completed successfully"));
-            echo Lang::T("Backup completed successfully\n\n");
-        } catch (Exception $e) {
-            _log(Lang::T("Backup failed: ") . $e->getMessage());
-            sendTelegram(Lang::T("Backup failed: ") . $e->getMessage());
-            echo Lang::T("Backup failed: ") . $e->getMessage() . "\n\n";
-        }
-    } else {
-        _log(Lang::T("No backup needed at this time. Last backup: $lastBackupDate"));
-        echo Lang::T("No backup needed at this time. Last backup: $lastBackupDate\n\n");
-    }
-
-    // Handle old backup cleanup
-    if (!empty($config['backup_clear_old'])) {
-        $retainCount = isset($config['backup_retain_count']) ? (int) $config['backup_retain_count'] : 5;
-        $files = glob("$backupDir/*.sql");
-
-        if ($files === false) {
-            _log(Lang::T("Failed to list backup files"));
+        // Ensure backup directory exists and is writable
+        if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true) && !is_dir($backupDir)) {
+            _log(Lang::T("Failed to create backup directory: $backupDir"));
+            sendTelegram(Lang::T("Failed to create backup directory: $backupDir"));
+            echo Lang::T("Failed to create backup directory: $backupDir\n\n");
             return;
         }
 
-        usort($files, static function ($a, $b) {
-            return filemtime($b) - filemtime($a);
-        });
+        if (!is_writable($backupDir)) {
+            _log(Lang::T("Backup directory is not writable: $backupDir"));
+            sendTelegram(Lang::T("Backup directory is not writable: $backupDir"));
+            echo Lang::T("Backup directory is not writable: $backupDir\n\n");
+            return;
+        }
 
-        if (count($files) > $retainCount) {
-            $filesToDelete = array_slice($files, $retainCount);
-            foreach ($filesToDelete as $file) {
-                if (@unlink($file)) {
-                    _log(Lang::T("Deleted old backup file: ") . basename($file));
-                    sendTelegram(Lang::T("Deleted old backup file: ") . basename($file));
-                } else {
-                    _log(Lang::T("Failed to delete old backup file: ") . basename($file));
+        // Get or create last backup time
+        $lastBackupTime = 0;
+        if (file_exists($lastBackupFile)) {
+            $lastBackupTime = (int) file_get_contents($lastBackupFile);
+        }
+
+        $currentTime = time();
+        $lastBackupDate = date('Y-m-d', $lastBackupTime ?: 0);
+        $currentDate = date('Y-m-d');
+
+        $shouldBackup = false;
+        $backupType = '';
+
+        switch ($config['backup_backup_time']) {
+            case 'everyday':
+                if ($lastBackupDate !== $currentDate) {
+                    $shouldBackup = true;
+                    $backupType = 'Daily';
+                }
+                break;
+
+            case 'everyweek':
+                if ((!$lastBackupTime || ($currentTime - $lastBackupTime) >= 7 * 24 * 3600) && date('w') == 0) {
+                    $shouldBackup = true;
+                    $backupType = 'Weekly';
+                }
+                break;
+
+            case 'everymonth':
+                if (date('j') == 1 && $lastBackupDate !== $currentDate) {
+                    $shouldBackup = true;
+                    $backupType = 'Monthly';
+                }
+                break;
+        }
+
+        if ($shouldBackup) {
+            _log(Lang::T("Initiating $backupType backup"));
+            sendTelegram(Lang::T("Initiating $backupType backup"));
+            echo Lang::T("Initiating $backupType backup\n\n");
+
+            try {
+                if (!backup_add(true)) {
+                    throw new \RuntimeException('Backup failed');
+                }
+                file_put_contents($lastBackupFile, $currentTime);
+
+                // Get the latest backup file
+                $files = glob("$backupDir/*.sql");
+                if (empty($files)) {
+                    throw new \RuntimeException('No backup files found');
+                }
+                usort($files, static function ($a, $b) {
+                    return filemtime($b) - filemtime($a);
+                });
+                $latestBackupFile = $files[0];
+
+                // Dropbox upload
+                if (isset($config['cloud_upload']) && $config['cloud_upload']) {
+                    $accessToken = $config['backup_dropbox_token'] ?? '';
+                    if (!empty($accessToken)) {
+                        backup_uploadToDropbox($latestBackupFile, $accessToken);
+                        _log(Lang::T("Backup uploaded to Dropbox successfully"));
+                        sendTelegram(Lang::T("Backup uploaded to Dropbox successfully"));
+                    }
+                }
+
+                _log(Lang::T("$backupType backup completed successfully"));
+                sendTelegram(Lang::T("$backupType backup completed successfully"));
+                echo Lang::T("Backup completed successfully\n\n");
+            } catch (Exception $e) {
+                _log(Lang::T("Backup failed: ") . $e->getMessage());
+                sendTelegram(Lang::T("Backup failed: ") . $e->getMessage());
+                echo Lang::T("Backup failed: ") . $e->getMessage() . "\n\n";
+            }
+        } else {
+            _log(Lang::T("No backup needed at this time. Last backup: $lastBackupDate"));
+            echo Lang::T("No backup needed at this time. Last backup: $lastBackupDate\n\n");
+        }
+
+        // Handle old backup cleanup
+        if (!empty($config['backup_clear_old'])) {
+            $retainCount = isset($config['backup_retain_count']) ? (int) $config['backup_retain_count'] : 5;
+            $files = glob("$backupDir/*.sql");
+
+            if ($files === false) {
+                _log(Lang::T("Failed to list backup files"));
+                return;
+            }
+
+            usort($files, static function ($a, $b) {
+                return filemtime($b) - filemtime($a);
+            });
+
+            if (count($files) > $retainCount) {
+                $filesToDelete = array_slice($files, $retainCount);
+                foreach ($filesToDelete as $file) {
+                    if (@unlink($file)) {
+                        _log(Lang::T("Deleted old backup file: ") . basename($file));
+                        sendTelegram(Lang::T("Deleted old backup file: ") . basename($file));
+                    } else {
+                        _log(Lang::T("Failed to delete old backup file: ") . basename($file));
+                    }
                 }
             }
         }
+        echo "\n";
     }
 }
 
