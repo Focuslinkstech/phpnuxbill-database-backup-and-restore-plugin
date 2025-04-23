@@ -345,10 +345,7 @@ function backup_cron(): void
     if (isset($config['backup_auto']) && $config['backup_auto']) {
         $backupDir = "$UPLOAD_PATH/backup";
         $lastBackupFile = "$backupDir/last_backup_time.txt";
-
-        _log(Lang::T("Backup Cron Started"));
-        echo Lang::T("Backup Cron Started:\n\n");
-
+        
         // Ensure backup directory exists and is writable
         if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true) && !is_dir($backupDir)) {
             _log(Lang::T("Failed to create backup directory: $backupDir"));
@@ -439,11 +436,7 @@ function backup_cron(): void
                 sendTelegram(Lang::T("Backup failed: ") . $e->getMessage());
                 echo Lang::T("Backup failed: ") . $e->getMessage() . "\n\n";
             }
-        } else {
-            _log(Lang::T("No backup needed at this time. Last backup: $lastBackupDate"));
-            echo Lang::T("No backup needed at this time. Last backup: $lastBackupDate\n\n");
         }
-
         // Handle old backup cleanup
         if (!empty($config['backup_clear_old'])) {
             $retainCount = isset($config['backup_retain_count']) ? (int) $config['backup_retain_count'] : 5;
