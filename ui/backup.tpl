@@ -144,7 +144,18 @@
                         </div>
                     </div>
 
-                    <div id="dropbox_fields" style="display: {if $_c['cloud_upload']==1}block{else}none{/if};">
+                    <div class="form-group col-6">
+                        <label class="col-md-3 control-label">{Lang::T('Dropbox Upload')}</label>
+                        <div class="col-md-6">
+                            <label class="switch">
+                                <input type="checkbox" id="backup_dropbox_upload" value="1" name="backup_dropbox_upload"
+                                    {if $_c['backup_dropbox_upload']==1}checked{/if} onchange="toggleDropboxFields()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="dropbox_fields" style="display: {if $_c['dropbox_upload']==1}block{else}none{/if};">
                         <div class="form-group col-6">
                             <label for="backup_dropbox_token" class="col-md-3 control-label">{Lang::T('Dropbox Access
                                 Token')}</label>
@@ -158,6 +169,35 @@
                                     Dropbox App settings.')} <br>
                                     <a href="https://www.dropbox.com/developers/apps" target="_blank">{Lang::T('Get
                                         Dropbox Access Token')}</a>
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group col-6">
+                        <label class="col-md-3 control-label">{Lang::T('Telegram Upload')}</label>
+                        <div class="col-md-6">
+                            <label class="switch">
+                                <input type="checkbox" id="backup_telegram_upload" value="1"
+                                    name="backup_telegram_upload" {if $_c['backup_telegram_upload']==1}checked{/if}
+                                    onchange="toggleTelegramFields()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="telegram_fields"
+                        style="display: {if $_c['backup_telegram_upload']==1}block{else}none{/if};">
+                        <div class="form-group col-6">
+                            <label for="backup_telegram_chatId" class="col-md-3 control-label">{Lang::T('Telegram UserID
+                                or Chat ID')}</label>
+                            <div class="col-md-6">
+                                <input type="password" class="form-control" id="backup_telegram_chatId"
+                                    name="backup_telegram_chatId" placeholder="172662882"
+                                    value="{$_c['backup_telegram_chatId']}">
+                                <small class="form-text text-muted">
+                                    {Lang::T('To get your Telegram UserID, Message ')}<a href="https://t.me/userinfobot"
+                                        target="_blank">@userinfobot</a> | {Lang::T('Leave empty if you want to send to
+                                    system Telegram notification ID')}
                                 </small>
                             </div>
                         </div>
@@ -213,15 +253,42 @@
 
     function toggleCloudFields() {
         const cloudUploadCheckbox = document.getElementById('cloud_upload');
-        const dropBoxFields = document.getElementById('dropbox_fields');
+        const dropboxSection = document.querySelector('.form-group:has(#backup_dropbox_upload)');
+        const telegramSection = document.querySelector('.form-group:has(#backup_telegram_upload)');
+        const dropboxFields = document.getElementById('dropbox_fields');
+        const telegramFields = document.getElementById('telegram_fields');
+
+        // Show/hide Dropbox and Telegram sections based on cloud upload status
         if (cloudUploadCheckbox.checked) {
-            dropBoxFields.style.display = 'block';
+            dropboxSection.style.display = 'block';
+            telegramSection.style.display = 'block';
+            // Re-check individual toggles
+            toggleDropboxFields();
+            toggleTelegramFields();
         } else {
-            dropBoxFields.style.display = 'none';
+            dropboxSection.style.display = 'none';
+            telegramSection.style.display = 'none';
+            dropboxFields.style.display = 'none';
+            telegramFields.style.display = 'none';
         }
     }
+
+    function toggleDropboxFields() {
+        if (!document.getElementById('cloud_upload').checked) return;
+        const dropboxUploadCheckbox = document.getElementById('backup_dropbox_upload');
+        const dropBoxFields = document.getElementById('dropbox_fields');
+        dropBoxFields.style.display = dropboxUploadCheckbox.checked ? 'block' : 'none';
+    }
+
+    function toggleTelegramFields() {
+        if (!document.getElementById('cloud_upload').checked) return;
+        const telegramUploadCheckbox = document.getElementById('backup_telegram_upload');
+        const telegramFields = document.getElementById('telegram_fields');
+        telegramFields.style.display = telegramUploadCheckbox.checked ? 'block' : 'none';
+    }
+
     toggleBackupFrequency();
     toggleRetainCount();
-    toggleCloudFields();
+    toggleCloudFields(); // Call this instead of individual toggles
 </script>
 {include file="sections/footer.tpl"}

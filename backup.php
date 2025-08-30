@@ -104,14 +104,9 @@ function backup_add($is_CLi = false)
             $command = "mysqldump --user={$db_user} --password={$db_pass} --host={$db_host} {$db_name} --result-file={$backupFile} 2>&1";
             $output = shell_exec($command);
             if (file_exists($backupFile)) {
-                // Dropbox upload
+                // Cloud upload
                 if (isset($config['cloud_upload']) && $config['cloud_upload']) {
-                    $accessToken = $config['backup_dropbox_token'] ?? '';
-                    if (!empty($accessToken)) {
-                        backup_uploadToDropbox($backupFile, $accessToken);
-                        _log(Lang::T("Backup uploaded to Dropbox successfully"));
-                        sendTelegram(Lang::T("Backup uploaded to Dropbox successfully"));
-                    }
+                    backup_uploadToCloud($backupFile);
                 }
                 r2(U . 'plugin/backup_list', 's', Lang::T("Database backup created successfully."));
             } else {
@@ -307,7 +302,10 @@ function backup_settingsPost(): void
             'backup_retain_count' => $_POST['backup_retain_count'],
             'backup_retain_days' => $_POST['backup_retain_days'],
             'cloud_upload' => $_POST['cloud_upload'] ? 1 : 0,
+            'backup_dropbox_upload' => $_POST['backup_dropbox_upload'] ? 1 : 0,
             'backup_dropbox_token' => $_POST['backup_dropbox_token'],
+            'backup_telegram_upload' => $_POST['backup_telegram_upload'] ? 1 : 0,
+            'backup_telegram_chatId' => $_POST['backup_telegram_chatId'],
         ];
 
         // Update or insert settings in the database
@@ -345,7 +343,7 @@ function backup_cron(): void
     if (isset($config['backup_auto']) && $config['backup_auto']) {
         $backupDir = "$UPLOAD_PATH/backup";
         $lastBackupFile = "$backupDir/last_backup_time.txt";
-        
+
         // Ensure backup directory exists and is writable
         if (!is_dir($backupDir) && !mkdir($backupDir, 0755, true) && !is_dir($backupDir)) {
             _log(Lang::T("Failed to create backup directory: $backupDir"));
@@ -418,14 +416,9 @@ function backup_cron(): void
                 });
                 $latestBackupFile = $files[0];
 
-                // Dropbox upload
+                // Cloud upload
                 if (isset($config['cloud_upload']) && $config['cloud_upload']) {
-                    $accessToken = $config['backup_dropbox_token'] ?? '';
-                    if (!empty($accessToken)) {
-                        backup_uploadToDropbox($latestBackupFile, $accessToken);
-                        _log(Lang::T("Backup uploaded to Dropbox successfully"));
-                        sendTelegram(Lang::T("Backup uploaded to Dropbox successfully"));
-                    }
+                    backup_uploadToCloud($latestBackupFile);
                 }
 
                 _log(Lang::T("$backupType backup completed successfully"));
@@ -467,39 +460,99 @@ function backup_cron(): void
     }
 }
 
-function backup_uploadToDropbox(string $filePath, string $accessToken): void
+function backup_uploadToCloud(string $filePath): void
 {
-    $url = 'https://content.dropboxapi.com/2/files/upload';
+    global $config;
     $fileName = basename($filePath);
 
-    $headers = [
-        "Authorization: Bearer $accessToken",
-        'Content-Type: application/octet-stream',
-        'Dropbox-API-Arg: ' . json_encode([
-            'path' => "/$fileName",
-            'mode' => 'overwrite'
-        ])
-    ];
+    if (!file_exists($filePath)) {
+        throw new \RuntimeException("File not found: $filePath");
+    }
 
-    $ch = curl_init();
-    $fp = fopen($filePath, 'rb');
+    $fileContent = file_get_contents($filePath);
+    if ($fileContent === false) {
+        throw new \RuntimeException("Failed to read file: $filePath");
+    }
 
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $fp);
-    curl_setopt($ch, CURLOPT_INFILESIZE, filesize($filePath));
+    $accessToken = $config['backup_dropbox_token'] ?? '';
 
-    $response = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $error = curl_error($ch);
+    if (!empty($accessToken) && ($config['backup_dropbox_upload'] ?? 0) == 1) {
 
-    curl_close($ch);
-    fclose($fp);
+        // Upload to Dropbox
+        $url = 'https://content.dropboxapi.com/2/files/upload';
+        $headers = [
+            "Authorization: Bearer $accessToken",
+            'Content-Type: application/octet-stream',
+            'Dropbox-API-Arg: ' . json_encode([
+                'path' => "/$fileName",
+                'mode' => 'overwrite'
+            ])
+        ];
 
-    if ($status !== 200) {
-        throw new \RuntimeException("Dropbox upload failed (HTTP $status): $error - $response");
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $fileContent);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+
+        curl_close($ch);
+
+        if ($status !== 200) {
+            throw new \RuntimeException("Dropbox upload failed (HTTP $status): $error - $response");
+        }
+    }
+
+    // Send to Telegram if configured
+    if (!empty($config['telegram_bot']) && ($config['backup_telegram_upload'] ?? 0) == 1) {
+        $botToken = $config['telegram_bot'];
+        if (!empty($config['backup_telegram_chatId'])) {
+            $chatId = $config['backup_telegram_chatId'];
+        } elseif (!empty($config['telegram_target_id'])) {
+            $chatId = $config['telegram_target_id'];
+        }
+
+        // Create CURLFile object
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $filePath);
+        $cFile = new \CURLFile($filePath, $mimeType, $fileName);
+
+        // Setup Telegram API request
+        $telegram_url = "https://api.telegram.org/bot$botToken/sendDocument";
+        $telegram_data = [
+            'chat_id' => $chatId,
+            'document' => $cFile,
+            'caption' => "Database Backup: $fileName"
+        ];
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $telegram_url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $telegram_data);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+
+        $response = curl_exec($ch);
+        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
+
+        curl_close($ch);
+        finfo_close($finfo);
+
+        if ($status !== 200) {
+            _log(Lang::T("Telegram backup upload failed: ") . $error . " - " . $response);
+            sendTelegram(Lang::T("Failed to send backup file via Telegram"));
+        } else {
+            _log(Lang::T("Backup file sent via Telegram successfully"));
+            sendTelegram(Lang::T("Backup file sent via Telegram successfully"));
+        }
     }
 }
 function backup_upload_form(): void
